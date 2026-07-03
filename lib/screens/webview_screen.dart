@@ -1,77 +1,97 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/account.dart';
 
-class WebViewScreen extends StatefulWidget {
+class WebViewScreen extends StatelessWidget {
   final ClaudeAccount account;
   const WebViewScreen({super.key, required this.account});
-  @override State<WebViewScreen> createState() => _WebViewScreenState();
-}
 
-class _WebViewScreenState extends State<WebViewScreen> {
-  late final WebViewController _ctrl;
-  bool _loading = true;
-  bool _pasted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) => setState(() => _loading = true),
-        onPageFinished: (_) => setState(() => _loading = false),
-      ))
-      ..loadRequest(Uri.parse('https://claude.ai/new'));
+  String _buildCopyText() {
+    final parts = <String>[];
+    if (account.context.isNotEmpty) parts.add(account.context);
+    if (account.questionToAsk.isNotEmpty) parts.add('\n${account.questionToAsk}');
+    return parts.join('\n');
   }
 
-  void _copyContext() {
-    final parts = <String>[];
-    if (widget.account.context.isNotEmpty) parts.add(widget.account.context);
-    if (widget.account.questionToAsk.isNotEmpty) parts.add('\n${widget.account.questionToAsk}');
-    final text = parts.join('\n');
-    Clipboard.setData(ClipboardData(text: text));
-    setState(() => _pasted = true);
-    ScaffoldMessenger.of(context).showSnackBar(
+  Future<void> _openInBrowser(BuildContext ctx) async {
+    Clipboard.setData(ClipboardData(text: _buildCopyText()));
+    ScaffoldMessenger.of(ctx).showSnackBar(
       const SnackBar(
-        content: Text('📋 Context copied! Long press in Claude to paste.'),
+        content: Text('📋 Context copied! Paste it in Claude.'),
         backgroundColor: Color(0xFF00FF88),
         duration: Duration(seconds: 3),
       ),
     );
+    await Future.delayed(const Duration(milliseconds: 500));
+    final uri = Uri.parse('https://claude.ai/new');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
   Widget build(BuildContext ctx) => Scaffold(
     backgroundColor: const Color(0xFF0A0A0A),
-    appBar: AppBar(
-      title: Text(widget.account.nickname, style: const TextStyle(fontFamily: 'monospace')),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: () => _ctrl.reload(),
+    appBar: AppBar(title: Text(account.nickname)),
+    body: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Icon(Icons.open_in_browser, color: Color(0xFF00FF88), size: 80),
+        const SizedBox(height: 24),
+        Text(account.nickname,
+          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+        const SizedBox(height: 8),
+        if (account.questionToAsk.isNotEmpty)
+          Text('"${account.questionToAsk}"',
+            style: const TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic),
+            textAlign: TextAlign.center),
+        const SizedBox(height: 40),
+        SizedBox(width: double.infinity, child: ElevatedButton.icon(
+          onPressed: () => _openInBrowser(ctx),
+          icon: const Icon(Icons.launch),
+          label: const Text('COPY CONTEXT & OPEN CLAUDE', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF00FF88),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        )),
+        const SizedBox(height: 16),
+        SizedBox(width: double.infinity, child: OutlinedButton.icon(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: _buildCopyText()));
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              const SnackBar(content: Text('📋 Context copied to clipboard!'),
+                backgroundColor: Color(0xFF00FF88), duration: Duration(seconds: 2)),
+            );
+          },
+          icon: const Icon(Icons.copy, color: Color(0xFFFFAA00)),
+          label: const Text('COPY CONTEXT ONLY', style: TextStyle(color: Color(0xFFFFAA00), fontFamily: 'monospace')),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Color(0xFFFFAA00)),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        )),
+        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111111),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Row(children: [
+            Icon(Icons.info_outline, color: Colors.grey, size: 16),
+            SizedBox(width: 8),
+            Expanded(child: Text(
+              'Context is copied to clipboard.\nOpen Claude → New chat → Long press → Paste.',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            )),
+          ]),
         ),
-      ],
-    ),
-    body: Stack(children: [
-      WebViewWidget(controller: _ctrl),
-      if (_loading)
-        const Center(child: CircularProgressIndicator(color: Color(0xFF00FF88))),
-    ]),
-    floatingActionButton: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FloatingActionButton.extended(
-          heroTag: 'paste',
-          onPressed: _copyContext,
-          backgroundColor: _pasted ? Colors.grey : const Color(0xFF00FF88),
-          foregroundColor: Colors.black,
-          icon: const Icon(Icons.copy),
-          label: Text(_pasted ? 'COPIED ✅' : 'COPY CONTEXT',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'monospace')),
-        ),
-      ],
+      ]),
     ),
   );
 }
