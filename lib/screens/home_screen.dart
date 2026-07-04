@@ -5,6 +5,7 @@ import '../models/account.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
+import '../services/app_logger.dart';
 import '../widgets/account_card.dart';
 import 'account_form_screen.dart';
 
@@ -28,8 +29,16 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() {});
     });
     // Listen to background service events
-    FlutterForegroundTask.initCommunicationPort();
-    _bgSub = FlutterForegroundTask.receivePort?.listen(_onBgData);
+    try {
+      FlutterForegroundTask.initCommunicationPort();
+      _bgSub = FlutterForegroundTask.receivePort?.listen(_onBgData);
+    } catch (e, st) {
+      // Known flutter_foreground_task quirk: if the service survived an
+      // app restart, its receivePort may already have a listener attached.
+      // Don't let this take down the whole app — just skip live background
+      // refresh for this session; the timer/service itself is unaffected.
+      AppLogger().logError('Background port listen failed (non-fatal)', e, st);
+    }
     // Fix #2 — request notification permission after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService().requestPermission(context);
