@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -6,8 +7,10 @@ class NotificationService {
   NotificationService._();
 
   final _p = FlutterLocalNotificationsPlugin();
+  bool _init = false;
 
   Future<void> init() async {
+    if (_init) return;
     await _p.initialize(
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -20,6 +23,23 @@ class NotificationService {
       description: 'Claude session ready notifications',
       importance: Importance.high,
     ));
+    _init = true;
+  }
+
+  // Fix #2 — Request notification permission at runtime (Android 13+)
+  Future<void> requestPermission(BuildContext context) async {
+    final ap = _p.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    final granted = await ap?.requestNotificationsPermission();
+    if (granted == false && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Enable notifications in Settings to get session alerts'),
+          backgroundColor: Color(0xFFFFAA00),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   Future<void> showSessionReady({

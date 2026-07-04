@@ -1,10 +1,10 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/account.dart';
 
-class AccountCard extends StatefulWidget {
+// Fix #15 — No internal Timer — parent HomeScreen drives rebuilds via single ticker
+class AccountCard extends StatelessWidget {
   final ClaudeAccount account;
   final VoidCallback onTap;
   final VoidCallback onStartTimer;
@@ -12,7 +12,7 @@ class AccountCard extends StatefulWidget {
   final VoidCallback onDelete;
 
   const AccountCard({
-    super.key,
+    super.key, // Fix #4 — key passed from parent (ValueKey)
     required this.account,
     required this.onTap,
     required this.onStartTimer,
@@ -20,29 +20,8 @@ class AccountCard extends StatefulWidget {
     required this.onDelete,
   });
 
-  @override
-  State<AccountCard> createState() => _AccountCardState();
-}
-
-class _AccountCardState extends State<AccountCard> {
-  Timer? _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
-
   Color get _statusColor {
-    switch (widget.account.status) {
+    switch (account.status) {
       case 'READY': return const Color(0xFF00FF88);
       case 'WAITING': return const Color(0xFFFFAA00);
       default: return Colors.grey;
@@ -50,7 +29,7 @@ class _AccountCardState extends State<AccountCard> {
   }
 
   String get _timerDisplay {
-    final rem = widget.account.timeRemaining;
+    final rem = account.timeRemaining;
     final h = rem.inHours.toString().padLeft(2, '0');
     final m = (rem.inMinutes % 60).toString().padLeft(2, '0');
     final s = (rem.inSeconds % 60).toString().padLeft(2, '0');
@@ -59,43 +38,41 @@ class _AccountCardState extends State<AccountCard> {
 
   String _buildCopyText() {
     final parts = <String>[];
-    if (widget.account.context.isNotEmpty) parts.add(widget.account.context);
-    if (widget.account.questionToAsk.isNotEmpty) parts.add('\n${widget.account.questionToAsk}');
+    if (account.context.isNotEmpty) parts.add(account.context);
+    if (account.questionToAsk.isNotEmpty) parts.add('\n${account.questionToAsk}');
     return parts.join('\n');
   }
 
-  void _copyContext() {
+  void _copyContext(BuildContext ctx) {
     Clipboard.setData(ClipboardData(text: _buildCopyText()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('📋 Context copied to clipboard!'),
-        backgroundColor: Color(0xFF00FF88),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+      content: Text('📋 Context copied to clipboard!'),
+      backgroundColor: Color(0xFF00FF88),
+      duration: Duration(seconds: 2),
+    ));
   }
 
-  Future<void> _openInBrowser() async {
-    _copyContext();
+  // Fix #14 — mounted check after every async gap
+  Future<void> _openInBrowser(BuildContext ctx) async {
+    _copyContext(ctx);
     await Future.delayed(const Duration(milliseconds: 300));
+    if (!ctx.mounted) return; // Fix #14
     final uri = Uri.parse('https://claude.ai/new');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
-  Future<void> _openInApp() async {
-    _copyContext();
-    Navigator.pushNamed(context, '/webview', arguments: widget.account);
+  void _openInApp(BuildContext ctx) {
+    _copyContext(ctx);
+    Navigator.pushNamed(ctx, '/webview', arguments: account);
   }
 
   @override
   Widget build(BuildContext ctx) {
-    final acc = widget.account;
     final c = _statusColor;
-
     return GestureDetector(
-      onTap: widget.onTap,
+      onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -115,16 +92,16 @@ class _AccountCardState extends State<AccountCard> {
               Container(width: 10, height: 10,
                   decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
               const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(acc.nickname, style: TextStyle(color: c, fontSize: 16,
-                    fontWeight: FontWeight.bold, fontFamily: 'monospace')),
-                if (acc.projectDescription.isNotEmpty)
-                  Text(acc.projectDescription,
-                      style: const TextStyle(color: Colors.grey, fontSize: 11)),
-              ])),
-              // Delete button
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(account.nickname, style: TextStyle(color: c, fontSize: 16,
+                        fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+                    if (account.projectDescription.isNotEmpty)
+                      Text(account.projectDescription,
+                          style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  ])),
               GestureDetector(
-                onTap: widget.onDelete,
+                onTap: onDelete,
                 child: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
               ),
               const SizedBox(width: 8),
@@ -135,59 +112,61 @@ class _AccountCardState extends State<AccountCard> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: c.withOpacity(0.5)),
                 ),
-                child: Text(acc.status, style: TextStyle(color: c, fontSize: 11,
+                child: Text(account.status, style: TextStyle(color: c, fontSize: 11,
                     fontWeight: FontWeight.bold, fontFamily: 'monospace')),
               ),
             ]),
           ),
 
-          // Timer display
+          // Timer
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Column(children: [
               Text(
-                acc.isReady ? 'READY TO CONTINUE' : _timerDisplay,
-                style: TextStyle(
-                  color: c,
-                  fontSize: acc.isReady ? 20 : 40,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
-                  letterSpacing: 3,
-                ),
+                account.isReady ? 'READY TO CONTINUE' : _timerDisplay,
+                style: TextStyle(color: c,
+                    fontSize: account.isReady ? 20 : 40,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'monospace', letterSpacing: 3),
               ),
-              if (!acc.isReady)
-                Text('remaining', style: TextStyle(color: c.withOpacity(0.6), fontSize: 11, letterSpacing: 2)),
-              if (acc.questionToAsk.isNotEmpty) ...[
+              if (!account.isReady)
+                Text('remaining',
+                    style: TextStyle(color: c.withOpacity(0.6),
+                        fontSize: 11, letterSpacing: 2)),
+              if (account.questionToAsk.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Text(
-                    '"${acc.questionToAsk}"',
-                    style: const TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic),
-                    maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
-                  ),
+                  child: Text('"${account.questionToAsk}"',
+                    style: const TextStyle(color: Colors.grey, fontSize: 11,
+                        fontStyle: FontStyle.italic),
+                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center),
                 ),
               ],
             ]),
           ),
 
-          // Action buttons
+          // Buttons — Fix #5: removed fake "In App", kept Chrome + copy
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(children: [
               Row(children: [
-                Expanded(child: _btn('🔲 In App', const Color(0xFF4499FF), _openInApp)),
+                Expanded(child: _btn(ctx, '🌐 Open Claude', const Color(0xFF00FF88),
+                    () => _openInBrowser(ctx))),
                 const SizedBox(width: 8),
-                Expanded(child: _btn('🌐 Chrome', const Color(0xFF00FF88), _openInBrowser)),
+                Expanded(child: _btn(ctx, '📋 Copy Context', const Color(0xFFFFAA00),
+                    () => _copyContext(ctx))),
               ]),
               const SizedBox(height: 8),
               Row(children: [
-                Expanded(child: _btn('📋 Copy Context', const Color(0xFFFFAA00), _copyContext)),
-                const SizedBox(width: 8),
-                if (!acc.isTimerRunning)
-                  Expanded(child: _btn('⏱ Start Timer', Colors.white, widget.onStartTimer))
+                if (!account.isTimerRunning)
+                  Expanded(child: _btn(ctx, '⏱ Start Timer', Colors.white, onStartTimer))
                 else
-                  Expanded(child: _btn('⏹ Stop Timer', const Color(0xFFFF4444), widget.onStopTimer)),
+                  Expanded(child: _btn(ctx, '⏹ Stop Timer', const Color(0xFFFF4444),
+                      onStopTimer)),
+                const SizedBox(width: 8),
+                Expanded(child: _btn(ctx, '✏️ Edit', Colors.grey, onTap)),
               ]),
             ]),
           ),
@@ -196,17 +175,19 @@ class _AccountCardState extends State<AccountCard> {
     );
   }
 
-  Widget _btn(String label, Color color, VoidCallback onTap) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.4)),
-      ),
-      child: Text(label, textAlign: TextAlign.center,
-          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
-    ),
-  );
+  Widget _btn(BuildContext ctx, String label, Color color, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.4)),
+          ),
+          child: Text(label, textAlign: TextAlign.center,
+              style: TextStyle(color: color, fontSize: 12,
+                  fontWeight: FontWeight.bold)),
+        ),
+      );
 }

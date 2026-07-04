@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'services/notification_service.dart';
+import 'services/storage_service.dart';
+import 'services/timer_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/webview_screen.dart';
 import 'models/account.dart';
@@ -12,7 +14,18 @@ void main() async {
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-  await NotificationService().init();
+
+  // Fix #8 — try/catch so one failed plugin never crashes the app
+  try { await NotificationService().init(); } catch (e) {
+    debugPrint('NotificationService init failed: $e');
+  }
+  try { await StorageService().init(); } catch (e) {
+    debugPrint('StorageService init failed: $e');
+  }
+  try { await TimerService().init(); } catch (e) {
+    debugPrint('TimerService init failed: $e');
+  }
+
   runApp(const ClaudeLinkApp());
 }
 
@@ -35,11 +48,9 @@ class ClaudeLinkApp extends StatelessWidget {
         backgroundColor: Color(0xFF0A0A0A),
         elevation: 0,
         titleTextStyle: TextStyle(
-          color: Color(0xFF00FF88),
-          fontSize: 16,
+          color: Color(0xFF00FF88), fontSize: 16,
           fontWeight: FontWeight.bold,
-          fontFamily: 'monospace',
-          letterSpacing: 2,
+          fontFamily: 'monospace', letterSpacing: 2,
         ),
         iconTheme: IconThemeData(color: Color(0xFF00FF88)),
       ),

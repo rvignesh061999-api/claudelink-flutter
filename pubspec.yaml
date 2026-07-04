@@ -1,7 +1,7 @@
 name: claudelink
 description: Claude Session Manager - Multi Account Timer App
 publish_to: none
-version: 1.0.1+2
+version: 1.0.3+4
 environment:
   sdk: '>=3.0.0 <4.0.0'
 dependencies:
@@ -10,6 +10,8 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   shared_preferences: ^2.3.2
   url_launcher: ^6.3.0
+  flutter_foreground_task: ^8.14.0
+  uuid: ^4.4.0
   cupertino_icons: ^1.0.6
 dev_dependencies:
   flutter_test:

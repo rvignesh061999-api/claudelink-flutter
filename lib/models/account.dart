@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 class ClaudeAccount {
   final String id;
   String nickname;
@@ -7,10 +9,9 @@ class ClaudeAccount {
   DateTime? timerStartedAt;
   int timerDurationHours;
   bool isActive;
-  List<SessionNote> sessionNotes;
 
   ClaudeAccount({
-    required this.id,
+    String? id,
     required this.nickname,
     this.projectDescription = '',
     this.context = '',
@@ -18,15 +19,14 @@ class ClaudeAccount {
     this.timerStartedAt,
     this.timerDurationHours = 5,
     this.isActive = true,
-    List<SessionNote>? sessionNotes,
-  }) : sessionNotes = sessionNotes ?? [];
+  }) : id = id ?? const Uuid().v4(); // Fix #17 — UUID instead of timestamp
 
   bool get isTimerRunning => timerStartedAt != null && !isReady;
 
   bool get isReady {
     if (timerStartedAt == null) return true;
     final elapsed = DateTime.now().difference(timerStartedAt!);
-    return elapsed.inHours >= timerDurationHours;
+    return elapsed.inSeconds >= timerDurationHours * 3600;
   }
 
   Duration get timeRemaining {
@@ -49,45 +49,23 @@ class ClaudeAccount {
     'projectDescription': projectDescription,
     'context': context,
     'questionToAsk': questionToAsk,
-    'timerStartedAt': timerStartedAt?.toIso8601String(),
+    // Fix #16 — store as UTC to avoid timezone/DST issues
+    'timerStartedAt': timerStartedAt?.toUtc().toIso8601String(),
     'timerDurationHours': timerDurationHours,
     'isActive': isActive,
-    'sessionNotes': sessionNotes.map((n) => n.toJson()).toList(),
   };
 
   factory ClaudeAccount.fromJson(Map<String, dynamic> j) => ClaudeAccount(
-    id: j['id'] ?? '',
-    nickname: j['nickname'] ?? '',
-    projectDescription: j['projectDescription'] ?? '',
-    context: j['context'] ?? '',
-    questionToAsk: j['questionToAsk'] ?? '',
+    id: j['id'] as String?,
+    nickname: j['nickname'] as String? ?? 'Unnamed',
+    projectDescription: j['projectDescription'] as String? ?? '',
+    context: j['context'] as String? ?? '',
+    questionToAsk: j['questionToAsk'] as String? ?? '',
+    // Fix #7 — null guard on DateTime.parse
     timerStartedAt: j['timerStartedAt'] != null
-        ? DateTime.parse(j['timerStartedAt'])
+        ? DateTime.tryParse(j['timerStartedAt'] as String)?.toLocal()
         : null,
-    timerDurationHours: j['timerDurationHours'] ?? 5,
-    isActive: j['isActive'] ?? true,
-    sessionNotes: (j['sessionNotes'] as List? ?? [])
-        .map((n) => SessionNote.fromJson(n))
-        .toList(),
-  );
-}
-
-class SessionNote {
-  final String id;
-  final String note;
-  final DateTime createdAt;
-
-  SessionNote({required this.id, required this.note, required this.createdAt});
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'note': note,
-    'createdAt': createdAt.toIso8601String(),
-  };
-
-  factory SessionNote.fromJson(Map<String, dynamic> j) => SessionNote(
-    id: j['id'] ?? '',
-    note: j['note'] ?? '',
-    createdAt: DateTime.parse(j['createdAt']),
+    timerDurationHours: (j['timerDurationHours'] as int?) ?? 5,
+    isActive: (j['isActive'] as bool?) ?? true,
   );
 }
