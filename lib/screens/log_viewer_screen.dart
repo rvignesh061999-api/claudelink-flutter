@@ -1,5 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_saver/file_saver.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../services/app_logger.dart';
 
 class LogViewerScreen extends StatefulWidget {
@@ -12,6 +20,7 @@ class LogViewerScreen extends StatefulWidget {
 class _LogViewerScreenState extends State<LogViewerScreen> {
   List<LogEntry> _entries = [];
   bool _loading = true;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -28,11 +37,33 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     });
   }
 
-  Future<void> _copyAll() async {
+  String _asText() {
     final text = _entries
         .map((e) => '[${e.time.toIso8601String()}] ${e.level.toUpperCase()}: ${e.message}')
         .join('\n\n');
-    await Clipboard.setData(ClipboardData(text: text.isEmpty ? 'No log entries.' : text));
+    return text.isEmpty ? 'No log entries.' : text;
+  }
+
+  Future<Uint8List> _buildPdfBytes() async {
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        build: (context) => [
+          pw.Text('ClaudeLink Debug Log',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 4),
+          pw.Text(DateTime.now().toIso8601String(),
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+          pw.SizedBox(height: 16),
+          pw.Text(_asText(), style: const pw.TextStyle(fontSize: 9)),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<void> _copyAll() async {
+    await Clipboard.setData(ClipboardData(text: _asText()));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Log copied to clipboard')),
@@ -44,6 +75,65 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     await _load();
   }
 
+  void _showMessage(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _run(String label, Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+    } catch (e, st) {
+      await AppLogger().logError('$label failed', e, st);
+      _showMessage('$label failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  // --- SAVE (real "download" — opens Android's native Save dialog) ---
+
+  Future<void> _saveTxt() => _run('Save TXT', () async {
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        await FileSaver.instance.saveAs(
+          name: 'claudelink_log_$stamp',
+          bytes: Uint8List.fromList(utf8.encode(_asText())),
+          fileExtension: 'txt',
+          mimeType: MimeType.text,
+        );
+        _showMessage('Saved');
+      });
+
+  Future<void> _savePdf() => _run('Save PDF', () async {
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        await FileSaver.instance.saveAs(
+          name: 'claudelink_log_$stamp',
+          bytes: await _buildPdfBytes(),
+          fileExtension: 'pdf',
+          mimeType: MimeType.pdf,
+        );
+        _showMessage('Saved');
+      });
+
+  // --- SHARE (send via another app) ---
+
+  Future<void> _shareTxt() => _run('Share TXT', () async {
+        final dir = await getTemporaryDirectory();
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        final file = File('${dir.path}/claudelink_log_$stamp.txt');
+        await file.writeAsString(_asText());
+        await Share.shareXFiles([XFile(file.path)], text: 'ClaudeLink debug log');
+      });
+
+  Future<void> _sharePdf() => _run('Share PDF', () async {
+        final dir = await getTemporaryDirectory();
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        final file = File('${dir.path}/claudelink_log_$stamp.pdf');
+        await file.writeAsBytes(await _buildPdfBytes());
+        await Share.shareXFiles([XFile(file.path)], text: 'ClaudeLink debug log (PDF)');
+      });
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,6 +141,30 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         title: const Text('DEBUG LOG'),
         actions: [
           IconButton(icon: const Icon(Icons.copy), onPressed: _copyAll, tooltip: 'Copy all'),
+          PopupMenuButton<String>(
+            icon: _busy
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.file_download_outlined),
+            tooltip: 'Save / Share',
+            onSelected: (v) {
+              switch (v) {
+                case 'save_txt': _saveTxt(); break;
+                case 'save_pdf': _savePdf(); break;
+                case 'share_txt': _shareTxt(); break;
+                case 'share_pdf': _sharePdf(); break;
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'save_txt', child: Text('Save as TXT')),
+              PopupMenuItem(value: 'save_pdf', child: Text('Save as PDF')),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'share_txt', child: Text('Share as TXT')),
+              PopupMenuItem(value: 'share_pdf', child: Text('Share as PDF')),
+            ],
+          ),
           IconButton(icon: const Icon(Icons.delete_outline), onPressed: _clear, tooltip: 'Clear'),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load, tooltip: 'Refresh'),
         ],
