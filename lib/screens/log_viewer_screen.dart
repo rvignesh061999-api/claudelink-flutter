@@ -99,7 +99,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         await FileSaver.instance.saveAs(
           name: 'claudelink_log_$stamp',
           bytes: Uint8List.fromList(utf8.encode(_asText())),
-          fileExtension: 'txt',
+          ext: 'txt',
           mimeType: MimeType.text,
         );
         _showMessage('Saved');
@@ -110,7 +110,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         await FileSaver.instance.saveAs(
           name: 'claudelink_log_$stamp',
           bytes: await _buildPdfBytes(),
-          fileExtension: 'pdf',
+          ext: 'pdf',
           mimeType: MimeType.pdf,
         );
         _showMessage('Saved');
