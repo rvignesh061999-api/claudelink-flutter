@@ -5,7 +5,7 @@ plugins {
 }
 android {
     namespace "com.claudelink.app"
-    compileSdk 34
+    compileSdk 36
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -30,4 +30,6 @@ flutter { source '../..' }
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
     implementation 'androidx.multidex:multidex:2.0.1'
+    implementation 'androidx.window:window:1.0.0'
+    implementation 'androidx.window:window-java:1.0.0'
 }
