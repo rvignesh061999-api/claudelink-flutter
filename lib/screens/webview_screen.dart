@@ -24,6 +24,7 @@ class WebViewScreen extends StatelessWidget {
       ),
     );
     await Future.delayed(const Duration(milliseconds: 500));
+    if (!ctx.mounted) return;
     final uri = Uri.parse('https://claude.ai/new');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);

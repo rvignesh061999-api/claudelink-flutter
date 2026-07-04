@@ -37,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _onBgData(Object data) {
+  void _onBgData(dynamic data) {
     if (!mounted) return;
     final d = Map<String, dynamic>.from(data as Map);
     if (d['event'] == 'sessionReady') {
