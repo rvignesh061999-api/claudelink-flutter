@@ -16,16 +16,36 @@ void main() {
   // even in release builds — and log it so it's visible later too.
   ErrorWidget.builder = (FlutterErrorDetails details) {
     AppLogger().logError('Widget build crash', details.exception, details.stack);
+    final errorText = 'CLAUDELINK CRASH:\n\n${details.exceptionAsString()}\n\n${details.stack}';
     return Material(
       color: const Color(0xFF0A0A0A),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: SingleChildScrollView(
-            child: Text(
-              'CLAUDELINK CRASH:\n\n${details.exceptionAsString()}\n\n${details.stack}',
-              style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontFamily: 'monospace'),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.copy),
+                label: const Text('COPY ERROR TO CLIPBOARD'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00FF88),
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: errorText));
+                },
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    errorText,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontFamily: 'monospace'),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
