@@ -3,6 +3,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../models/account.dart';
 import 'notification_service.dart';
 import 'storage_service.dart';
+import 'app_logger.dart';
 
 @pragma('vm:entry-point')
 void timerCallback() {
@@ -14,27 +15,39 @@ class ClaudeLinkTimerHandler extends TaskHandler {
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    await NotificationService().init();
+    try {
+      await NotificationService().init();
+    } catch (e, st) {
+      await AppLogger().logError('[bg isolate] onStart failed', e, st);
+    }
   }
 
   @override
   Future<void> onRepeatEvent(DateTime timestamp) async {
     // Fix #1 — runs every 60s in background even when app is closed
-    final accounts = await StorageService().loadAccounts();
-    for (final acc in accounts) {
-      if (acc.isReady && acc.timerStartedAt != null && !_notified.contains(acc.id)) {
-        _notified.add(acc.id);
-        await NotificationService().showSessionReady(
-          id: acc.id.hashCode,
-          nickname: acc.nickname,
-          question: acc.questionToAsk,
-        );
-        FlutterForegroundTask.sendDataToMain({
-          'event': 'sessionReady',
-          'accountId': acc.id,
-          'nickname': acc.nickname,
-        });
+    try {
+      final accounts = await StorageService().loadAccounts();
+      for (final acc in accounts) {
+        if (acc.isReady && acc.timerStartedAt != null && !_notified.contains(acc.id)) {
+          _notified.add(acc.id);
+          try {
+            await NotificationService().showSessionReady(
+              id: acc.id.hashCode,
+              nickname: acc.nickname,
+              question: acc.questionToAsk,
+            );
+            FlutterForegroundTask.sendDataToMain({
+              'event': 'sessionReady',
+              'accountId': acc.id,
+              'nickname': acc.nickname,
+            });
+          } catch (e, st) {
+            await AppLogger().logError('[bg isolate] notifying "${acc.nickname}" failed', e, st);
+          }
+        }
       }
+    } catch (e, st) {
+      await AppLogger().logError('[bg isolate] onRepeatEvent failed', e, st);
     }
   }
 
@@ -43,8 +56,12 @@ class ClaudeLinkTimerHandler extends TaskHandler {
 
   @override
   void onReceiveData(Object data) {
-    if (data is Map && data['event'] == 'resetNotified') {
-      _notified.remove(data['accountId']);
+    try {
+      if (data is Map && data['event'] == 'resetNotified') {
+        _notified.remove(data['accountId']);
+      }
+    } catch (e, st) {
+      AppLogger().logError('[bg isolate] onReceiveData failed', e, st);
     }
   }
 }
