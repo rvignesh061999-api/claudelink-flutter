@@ -1,32 +1,70 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'services/timer_service.dart';
+import 'services/app_logger.dart';
 import 'screens/home_screen.dart';
 import 'screens/webview_screen.dart';
+import 'screens/log_viewer_screen.dart';
 import 'models/account.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-  ));
+void main() {
+  // Show the real error on-screen instead of a blank white screen,
+  // even in release builds — and log it so it's visible later too.
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    AppLogger().logError('Widget build crash', details.exception, details.stack);
+    return Material(
+      color: const Color(0xFF0A0A0A),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Text(
+              'CLAUDELINK CRASH:\n\n${details.exceptionAsString()}\n\n${details.stack}',
+              style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontFamily: 'monospace'),
+            ),
+          ),
+        ),
+      ),
+    );
+  };
 
-  // Fix #8 — try/catch so one failed plugin never crashes the app
-  try { await NotificationService().init(); } catch (e) {
-    debugPrint('NotificationService init failed: $e');
-  }
-  try { await StorageService().init(); } catch (e) {
-    debugPrint('StorageService init failed: $e');
-  }
-  try { await TimerService().init(); } catch (e) {
-    debugPrint('TimerService init failed: $e');
-  }
+  // Catch framework-level errors (e.g. thrown in callbacks, gesture
+  // handlers, etc.) that don't go through ErrorWidget.builder.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    AppLogger().logError('Framework error', details.exception, details.stack);
+    FlutterError.presentError(details);
+  };
 
-  runApp(const ClaudeLinkApp());
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ));
+
+    // Fix #8 — try/catch so one failed plugin never crashes the app
+    try { await NotificationService().init(); } catch (e, st) {
+      AppLogger().logError('NotificationService init failed', e, st);
+    }
+    try { await StorageService().init(); } catch (e, st) {
+      AppLogger().logError('StorageService init failed', e, st);
+    }
+    try { await TimerService().init(); } catch (e, st) {
+      AppLogger().logError('TimerService init failed', e, st);
+    }
+
+    runApp(const ClaudeLinkApp());
+  }, (error, stack) {
+    // Catches anything uncaught anywhere in the app — including future
+    // API calls, background isolate errors relayed to the main isolate,
+    // and any async error not wrapped in its own try/catch.
+    AppLogger().logError('Uncaught error', error, stack);
+  });
 }
 
 class ClaudeLinkApp extends StatelessWidget {
@@ -60,6 +98,9 @@ class ClaudeLinkApp extends StatelessWidget {
       if (settings.name == '/webview') {
         final acc = settings.arguments as ClaudeAccount;
         return MaterialPageRoute(builder: (_) => WebViewScreen(account: acc));
+      }
+      if (settings.name == '/logs') {
+        return MaterialPageRoute(builder: (_) => const LogViewerScreen());
       }
       return null;
     },
