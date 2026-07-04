@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
+import 'app_logger.dart';
 
 class StorageService {
   static final StorageService _i = StorageService._();
@@ -32,13 +33,15 @@ class StorageService {
       for (final j in list) {
         try {
           accounts.add(ClaudeAccount.fromJson(Map<String, dynamic>.from(j)));
-        } catch (e) {
+        } catch (e, st) {
           debugPrint('Skipping corrupt account entry: $e');
+          AppLogger().logError('Skipping corrupt account entry', e, st);
         }
       }
       return accounts;
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('loadAccounts failed: $e');
+      AppLogger().logError('loadAccounts failed', e, st);
       return [];
     }
   }
