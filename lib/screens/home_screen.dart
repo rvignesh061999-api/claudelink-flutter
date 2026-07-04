@@ -122,6 +122,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(color: Colors.grey, fontSize: 11, letterSpacing: 1)),
             ]),
             const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined, color: Colors.grey, size: 20),
+              tooltip: 'Debug log',
+              onPressed: () => Navigator.pushNamed(ctx, '/logs'),
+            ),
             _statBadge('✅', '$_readyCount', const Color(0xFF00FF88)),
             const SizedBox(width: 8),
             _statBadge('⏳', '$_waitingCount', const Color(0xFFFFAA00)),
