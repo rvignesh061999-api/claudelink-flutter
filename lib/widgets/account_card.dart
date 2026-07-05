@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/account.dart';
+import '../services/app_logger.dart';
 
-// Fix #15 — No internal Timer — parent HomeScreen drives rebuilds via single ticker
+// Fix #15 â€” No internal Timer â€” parent HomeScreen drives rebuilds via single ticker
 class AccountCard extends StatelessWidget {
   final ClaudeAccount account;
   final VoidCallback onTap;
@@ -12,7 +13,7 @@ class AccountCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   const AccountCard({
-    super.key, // Fix #4 — key passed from parent (ValueKey)
+    super.key, // Fix #4 â€” key passed from parent (ValueKey)
     required this.account,
     required this.onTap,
     required this.onStartTimer,
@@ -46,20 +47,48 @@ class AccountCard extends StatelessWidget {
   void _copyContext(BuildContext ctx) {
     Clipboard.setData(ClipboardData(text: _buildCopyText()));
     ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-      content: Text('📋 Context copied to clipboard!'),
+      content: Text('ðŸ“‹ Context copied to clipboard!'),
       backgroundColor: Color(0xFF00FF88),
       duration: Duration(seconds: 2),
     ));
   }
 
-  // Fix #14 — mounted check after every async gap
+  // Fix #14 â€” mounted check after every async gap
   Future<void> _openInBrowser(BuildContext ctx) async {
     _copyContext(ctx);
     await Future.delayed(const Duration(milliseconds: 300));
     if (!ctx.mounted) return; // Fix #14
     final uri = Uri.parse('https://claude.ai/new');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    // Try the Claude app directly first (only works if Anthropic has
+    // registered Android App Links for claude.ai). If no non-browser
+    // app claims this link, this call returns false without side effects.
+    bool openedInApp = false;
+    try {
+      openedInApp = await launchUrl(uri, mode: LaunchMode.externalNonBrowserApplication);
+      await AppLogger().log(
+        openedInApp
+            ? 'Opened claude.ai directly in a non-browser app'
+            : 'No non-browser app claimed claude.ai â€” falling back to browser',
+      );
+    } catch (e, st) {
+      openedInApp = false;
+      await AppLogger().logError('externalNonBrowserApplication launch threw', e, st);
+    }
+
+    if (!openedInApp) {
+      if (await canLaunchUrl(uri)) {
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          await AppLogger().logError(
+            'Open Claude failed', 'launchUrl returned false for browser fallback',
+          );
+        }
+      } else {
+        await AppLogger().logError(
+          'Open Claude failed', 'canLaunchUrl returned false â€” no browser detected',
+        );
+      }
     }
   }
 
@@ -147,26 +176,26 @@ class AccountCard extends StatelessWidget {
             ]),
           ),
 
-          // Buttons — Fix #5: removed fake "In App", kept Chrome + copy
+          // Buttons â€” Fix #5: removed fake "In App", kept Chrome + copy
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(children: [
               Row(children: [
-                Expanded(child: _btn(ctx, '🌐 Open Claude', const Color(0xFF00FF88),
+                Expanded(child: _btn(ctx, 'ðŸŒ Open Claude', const Color(0xFF00FF88),
                     () => _openInBrowser(ctx))),
                 const SizedBox(width: 8),
-                Expanded(child: _btn(ctx, '📋 Copy Context', const Color(0xFFFFAA00),
+                Expanded(child: _btn(ctx, 'ðŸ“‹ Copy Context', const Color(0xFFFFAA00),
                     () => _copyContext(ctx))),
               ]),
               const SizedBox(height: 8),
               Row(children: [
                 if (!account.isTimerRunning)
-                  Expanded(child: _btn(ctx, '⏱ Start Timer', Colors.white, onStartTimer))
+                  Expanded(child: _btn(ctx, 'â± Start Timer', Colors.white, onStartTimer))
                 else
-                  Expanded(child: _btn(ctx, '⏹ Stop Timer', const Color(0xFFFF4444),
+                  Expanded(child: _btn(ctx, 'â¹ Stop Timer', const Color(0xFFFF4444),
                       onStopTimer)),
                 const SizedBox(width: 8),
-                Expanded(child: _btn(ctx, '✏️ Edit', Colors.grey, onTap)),
+                Expanded(child: _btn(ctx, 'âœï¸ Edit', Colors.grey, onTap)),
               ]),
             ]),
           ),
