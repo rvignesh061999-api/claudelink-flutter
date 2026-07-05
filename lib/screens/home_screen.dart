@@ -43,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService().requestPermission(context);
       TimerService().start();
+      TimerService().requestBatteryOptimizationExemption();
     });
   }
 
@@ -213,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _emptyState() =>
       Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Text('ðŸ¤–', style: TextStyle(fontSize: 64)),
+        const Text('\u{1F916}', style: TextStyle(fontSize: 64)),
         const SizedBox(height: 16),
         const Text('No accounts yet',
             style: TextStyle(color: Colors.white, fontSize: 18,
