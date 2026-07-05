@@ -73,7 +73,7 @@ class AccountCard extends StatelessWidget {
         uri = textToPaste.trim().isNotEmpty
             ? parsed.replace(queryParameters: {...parsed.queryParameters, 'q': textToPaste})
             : parsed;
-        await AppLogger().log('Using saved chat URL for "${account.nickname}"');
+        await AppLogger().log('Using saved chat URL for "${account.nickname}" \u2014 final URI: $uri');
       } else {
         uri = Uri.parse('https://claude.ai');
         await AppLogger().logError(
