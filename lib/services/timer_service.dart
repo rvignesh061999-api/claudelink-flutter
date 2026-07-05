@@ -24,7 +24,7 @@ class ClaudeLinkTimerHandler extends TaskHandler {
 
   @override
   Future<void> onRepeatEvent(DateTime timestamp) async {
-    // Fix #1 — runs every 60s in background even when app is closed
+    // Fix #1 â€” runs every 60s in background even when app is closed
     try {
       final accounts = await StorageService().loadAccounts();
       for (final acc in accounts) {
@@ -104,5 +104,20 @@ class TimerService {
 
   Future<void> stop() async {
     await FlutterForegroundTask.stopService();
+  }
+
+  // The plugin itself recommends this for Android 12+: without it, the OS
+  // may not reliably restart the background service after a reboot or if
+  // it gets killed. Only shows Android's native prompt if not already
+  // exempted â€” safe to call every time the app opens.
+  Future<void> requestBatteryOptimizationExemption() async {
+    try {
+      final ignoring = await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+      if (!ignoring) {
+        await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+      }
+    } catch (e, st) {
+      await AppLogger().logError('requestBatteryOptimizationExemption failed', e, st);
+    }
   }
 }
