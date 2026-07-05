@@ -47,7 +47,7 @@ class AccountCard extends StatelessWidget {
   void _copyContext(BuildContext ctx) {
     Clipboard.setData(ClipboardData(text: _buildCopyText()));
     ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-      content: Text('ðŸ“‹ Context copied to clipboard!'),
+      content: Text('\u{1F4CB} Context copied to clipboard!'),
       backgroundColor: Color(0xFF00FF88),
       duration: Duration(seconds: 2),
     ));
@@ -58,7 +58,24 @@ class AccountCard extends StatelessWidget {
     _copyContext(ctx);
     await Future.delayed(const Duration(milliseconds: 300));
     if (!ctx.mounted) return; // Fix #14
-    final uri = Uri.parse('https://claude.ai/new');
+
+    final textToPaste = _buildCopyText();
+    Uri uri;
+    if (textToPaste.trim().isNotEmpty) {
+      // Experiment: try pre-filling Claude's input via a query param.
+      // Not officially documented by Anthropic â€” if unsupported, Claude
+      // just opens /new normally with an empty input (same as before).
+      uri = Uri.parse('https://claude.ai/new').replace(
+        queryParameters: {'q': textToPaste},
+      );
+      await AppLogger().log('Trying pre-fill via query param on /new');
+    } else {
+      // Experiment: nothing to paste, so try the root URL instead of
+      // forcing /new â€” hoping this lands on the most recent chat rather
+      // than always starting a blank new one. Not guaranteed by Anthropic.
+      uri = Uri.parse('https://claude.ai');
+      await AppLogger().log('No context to paste â€” trying root URL for last chat');
+    }
 
     // Try the Claude app directly first (only works if Anthropic has
     // registered Android App Links for claude.ai). If no non-browser
@@ -181,21 +198,21 @@ class AccountCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(children: [
               Row(children: [
-                Expanded(child: _btn(ctx, 'ðŸŒ Open Claude', const Color(0xFF00FF88),
+                Expanded(child: _btn(ctx, '\u{1F310} Open Claude', const Color(0xFF00FF88),
                     () => _openInBrowser(ctx))),
                 const SizedBox(width: 8),
-                Expanded(child: _btn(ctx, 'ðŸ“‹ Copy Context', const Color(0xFFFFAA00),
+                Expanded(child: _btn(ctx, '\u{1F4CB} Copy Context', const Color(0xFFFFAA00),
                     () => _copyContext(ctx))),
               ]),
               const SizedBox(height: 8),
               Row(children: [
                 if (!account.isTimerRunning)
-                  Expanded(child: _btn(ctx, 'â± Start Timer', Colors.white, onStartTimer))
+                  Expanded(child: _btn(ctx, '\u23F1 Start Timer', Colors.white, onStartTimer))
                 else
-                  Expanded(child: _btn(ctx, 'â¹ Stop Timer', const Color(0xFFFF4444),
+                  Expanded(child: _btn(ctx, '\u23F9 Stop Timer', const Color(0xFFFF4444),
                       onStopTimer)),
                 const SizedBox(width: 8),
-                Expanded(child: _btn(ctx, 'âœï¸ Edit', Colors.grey, onTap)),
+                Expanded(child: _btn(ctx, '\u270F\uFE0F Edit', Colors.grey, onTap)),
               ]),
             ]),
           ),
