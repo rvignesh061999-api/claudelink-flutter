@@ -6,6 +6,7 @@ class ClaudeAccount {
   String projectDescription;
   String context;
   String questionToAsk;
+  String chatUrl;
   DateTime? timerStartedAt;
   int timerDurationHours;
   bool isActive;
@@ -16,10 +17,11 @@ class ClaudeAccount {
     this.projectDescription = '',
     this.context = '',
     this.questionToAsk = '',
+    this.chatUrl = '',
     this.timerStartedAt,
     this.timerDurationHours = 5,
     this.isActive = true,
-  }) : id = id ?? const Uuid().v4(); // Fix #17 — UUID instead of timestamp
+  }) : id = id ?? const Uuid().v4(); // Fix #17 â€” UUID instead of timestamp
 
   bool get isTimerRunning => timerStartedAt != null && !isReady;
 
@@ -49,7 +51,8 @@ class ClaudeAccount {
     'projectDescription': projectDescription,
     'context': context,
     'questionToAsk': questionToAsk,
-    // Fix #16 — store as UTC to avoid timezone/DST issues
+    'chatUrl': chatUrl,
+    // Fix #16 â€” store as UTC to avoid timezone/DST issues
     'timerStartedAt': timerStartedAt?.toUtc().toIso8601String(),
     'timerDurationHours': timerDurationHours,
     'isActive': isActive,
@@ -61,7 +64,8 @@ class ClaudeAccount {
     projectDescription: j['projectDescription'] as String? ?? '',
     context: j['context'] as String? ?? '',
     questionToAsk: j['questionToAsk'] as String? ?? '',
-    // Fix #7 — null guard on DateTime.parse
+    chatUrl: j['chatUrl'] as String? ?? '',
+    // Fix #7 â€” null guard on DateTime.parse
     timerStartedAt: j['timerStartedAt'] != null
         ? DateTime.tryParse(j['timerStartedAt'] as String)?.toLocal()
         : null,
