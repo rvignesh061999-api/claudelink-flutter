@@ -8,6 +8,7 @@ import '../services/timer_service.dart';
 import '../services/app_logger.dart';
 import '../widgets/account_card.dart';
 import 'account_form_screen.dart';
+import 'chat_links_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,7 +17,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<ClaudeAccount> _accounts = [];
-  // Fix #15 â€” single shared ticker for all cards
+  // Fix #15 — single shared ticker for all cards
   Timer? _ticker;
   StreamSubscription? _bgSub;
 
@@ -24,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
-    // Fix #15 â€” one timer drives all card countdowns
+    // Fix #15 — one timer drives all card countdowns
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -35,11 +36,11 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e, st) {
       // Known flutter_foreground_task quirk: if the service survived an
       // app restart, its receivePort may already have a listener attached.
-      // Don't let this take down the whole app â€” just skip live background
+      // Don't let this take down the whole app — just skip live background
       // refresh for this session; the timer/service itself is unaffected.
       AppLogger().logError('Background port listen failed (non-fatal)', e, st);
     }
-    // Fix #2 â€” request notification permission after first frame
+    // Fix #2 — request notification permission after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService().requestPermission(context);
       TimerService().start();
@@ -133,6 +134,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ]),
             const Spacer(),
             IconButton(
+              icon: const Icon(Icons.link, color: Colors.grey, size: 20),
+              tooltip: 'Saved chat links',
+              onPressed: () => Navigator.push(
+                ctx,
+                MaterialPageRoute(builder: (_) => const ChatLinksScreen()),
+              ),
+            ),
+            IconButton(
               icon: const Icon(Icons.bug_report_outlined, color: Colors.grey, size: 20),
               tooltip: 'Debug log',
               onPressed: () => Navigator.pushNamed(ctx, '/logs'),
@@ -164,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         const SizedBox(height: 12),
 
-        // Account list â€” Fix #4: ValueKey per account
+        // Account list — Fix #4: ValueKey per account
         Expanded(
           child: _accounts.isEmpty
               ? _emptyState()

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/account.dart';
+import '../models/saved_chat_link.dart';
 import '../services/storage_service.dart';
+import 'chat_links_screen.dart';
 
 class AccountFormScreen extends StatefulWidget {
   final ClaudeAccount? account;
@@ -17,17 +19,41 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
   int _timerHours = 5;
   bool get _isEdit => widget.account != null;
 
+  // A stable draft with a real UUID from the moment the form opens (even
+  // for a brand-new account) — this lets saved chat links be associated
+  // with this account right away, without needing to save the account first.
+  late ClaudeAccount _draft;
+  List<SavedChatLink> _savedLinks = [];
+  bool _loadingLinks = true;
+
   @override
   void initState() {
     super.initState();
-    if (_isEdit) {
-      _nickname.text = widget.account!.nickname;
-      _project.text = widget.account!.projectDescription;
-      _context.text = widget.account!.context;
-      _question.text = widget.account!.questionToAsk;
-      _chatUrl.text = widget.account!.chatUrl;
-      _timerHours = widget.account!.timerDurationHours;
-    }
+    _draft = widget.account ?? ClaudeAccount(nickname: '');
+    _nickname.text = _draft.nickname;
+    _project.text = _draft.projectDescription;
+    _context.text = _draft.context;
+    _question.text = _draft.questionToAsk;
+    _chatUrl.text = _draft.chatUrl;
+    _timerHours = _draft.timerDurationHours;
+    _loadLinks();
+  }
+
+  Future<void> _loadLinks() async {
+    final links = await StorageService().chatLinksForAccount(_draft.id);
+    if (!mounted) return;
+    setState(() {
+      _savedLinks = links;
+      _loadingLinks = false;
+    });
+  }
+
+  Future<void> _openLinkManager() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ChatLinksScreen(preselectedAccountId: _draft.id)),
+    );
+    await _loadLinks();
   }
 
   @override
@@ -48,25 +74,17 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
       return;
     }
 
+    _draft.nickname = _nickname.text.trim();
+    _draft.projectDescription = _project.text.trim();
+    _draft.context = _context.text.trim();
+    _draft.questionToAsk = _question.text.trim();
+    _draft.chatUrl = _chatUrl.text.trim();
+    _draft.timerDurationHours = _timerHours;
+
     if (_isEdit) {
-      widget.account!.nickname = _nickname.text.trim();
-      widget.account!.projectDescription = _project.text.trim();
-      widget.account!.context = _context.text.trim();
-      widget.account!.questionToAsk = _question.text.trim();
-      widget.account!.chatUrl = _chatUrl.text.trim();
-      widget.account!.timerDurationHours = _timerHours;
-      await StorageService().updateAccount(widget.account!);
+      await StorageService().updateAccount(_draft);
     } else {
-      final acc = ClaudeAccount(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        nickname: _nickname.text.trim(),
-        projectDescription: _project.text.trim(),
-        context: _context.text.trim(),
-        questionToAsk: _question.text.trim(),
-        chatUrl: _chatUrl.text.trim(),
-        timerDurationHours: _timerHours,
-      );
-      await StorageService().addAccount(acc);
+      await StorageService().addAccount(_draft);
     }
     if (mounted) Navigator.pop(context);
   }
@@ -101,15 +119,45 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
         const SizedBox(height: 16),
 
         _label('SPECIFIC CHAT URL (OPTIONAL)'),
+        if (!_loadingLinks && _savedLinks.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(color: const Color(0xFF111111), borderRadius: BorderRadius.circular(8)),
+            child: DropdownButton<String>(
+              isExpanded: true,
+              underline: const SizedBox(),
+              dropdownColor: const Color(0xFF1A1A1A),
+              hint: const Text('Choose a saved link...', style: TextStyle(color: Colors.grey)),
+              value: _savedLinks.any((l) => l.url == _chatUrl.text) ? _chatUrl.text : null,
+              items: _savedLinks
+                  .map((l) => DropdownMenuItem(
+                        value: l.url,
+                        child: Text(l.alias, style: const TextStyle(color: Colors.white)),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _chatUrl.text = v ?? ''),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         _field(_chatUrl,
             'Paste a specific conversation link, e.g. https://claude.ai/chat/xxxxxxxx-xxxx...',
             maxLines: 2),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _openLinkManager,
+            icon: const Icon(Icons.link, size: 16),
+            label: const Text('Manage Saved Links', style: TextStyle(fontSize: 12)),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Text(
-            'To get this: open the exact Claude conversation you want to resume, '
-            'copy its URL from your browser\'s address bar, and paste it here. '
-            'If left blank, Open Claude will just take you to claude.ai directly.',
+            'Save frequently-used conversation links with an alias so you don\'t '
+            'have to paste the URL every time. If left blank, Open Claude will '
+            'just take you to claude.ai directly.',
             style: TextStyle(color: Colors.grey.withOpacity(0.7), fontSize: 11),
           ),
         ),
