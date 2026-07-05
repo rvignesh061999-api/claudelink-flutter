@@ -143,8 +143,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           openedInApp = false;
         }
         if (!openedInApp) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+          await AppLogger().log(
+            launched
+                ? '$label: opened in browser (no non-browser app claimed it) â€” URL: $uri'
+                : '$label: FAILED to open anything â€” URL: $uri',
+          );
+        } else {
+          await AppLogger().log('$label: opened directly in a non-browser app â€” URL: $uri');
         }
+        await _load();
         _showMessage(openedInApp ? 'Opened in app' : 'Opened in browser (no app claimed it)');
       });
 
@@ -242,7 +250,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${e.time.toString().substring(0, 19)}  â€¢  ${e.level.toUpperCase()}',
+                                  '${e.time.toString().substring(0, 19)}  \u2022  ${e.level.toUpperCase()}',
                                   style: TextStyle(
                                     color: isError ? Colors.redAccent : Colors.greenAccent,
                                     fontSize: 11,
