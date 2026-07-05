@@ -16,7 +16,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<ClaudeAccount> _accounts = [];
-  // Fix #15 — single shared ticker for all cards
+  // Fix #15 â€” single shared ticker for all cards
   Timer? _ticker;
   StreamSubscription? _bgSub;
 
@@ -24,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
-    // Fix #15 — one timer drives all card countdowns
+    // Fix #15 â€” one timer drives all card countdowns
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -35,11 +35,11 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e, st) {
       // Known flutter_foreground_task quirk: if the service survived an
       // app restart, its receivePort may already have a listener attached.
-      // Don't let this take down the whole app — just skip live background
+      // Don't let this take down the whole app â€” just skip live background
       // refresh for this session; the timer/service itself is unaffected.
       AppLogger().logError('Background port listen failed (non-fatal)', e, st);
     }
-    // Fix #2 — request notification permission after first frame
+    // Fix #2 â€” request notification permission after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService().requestPermission(context);
       TimerService().start();
@@ -136,9 +136,9 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: 'Debug log',
               onPressed: () => Navigator.pushNamed(ctx, '/logs'),
             ),
-            _statBadge('✅', '$_readyCount', const Color(0xFF00FF88)),
+            _statBadge('\u2705', '$_readyCount', const Color(0xFF00FF88)),
             const SizedBox(width: 8),
-            _statBadge('⏳', '$_waitingCount', const Color(0xFFFFAA00)),
+            _statBadge('\u23F3', '$_waitingCount', const Color(0xFFFFAA00)),
           ]),
         ),
 
@@ -163,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         const SizedBox(height: 12),
 
-        // Account list — Fix #4: ValueKey per account
+        // Account list â€” Fix #4: ValueKey per account
         Expanded(
           child: _accounts.isEmpty
               ? _emptyState()
@@ -213,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _emptyState() =>
       Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Text('🤖', style: TextStyle(fontSize: 64)),
+        const Text('ðŸ¤–', style: TextStyle(fontSize: 64)),
         const SizedBox(height: 16),
         const Text('No accounts yet',
             style: TextStyle(color: Colors.white, fontSize: 18,
