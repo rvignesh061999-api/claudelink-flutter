@@ -61,20 +61,32 @@ class AccountCard extends StatelessWidget {
 
     final textToPaste = _buildCopyText();
     Uri uri;
-    if (textToPaste.trim().isNotEmpty) {
-      // Experiment: try pre-filling Claude's input via a query param.
-      // Not officially documented by Anthropic â€” if unsupported, Claude
-      // just opens /new normally with an empty input (same as before).
-      uri = Uri.parse('https://claude.ai/new').replace(
-        queryParameters: {'q': textToPaste},
-      );
-      await AppLogger().log('Trying pre-fill via query param on /new');
+
+    if (account.chatUrl.trim().isNotEmpty) {
+      // Priority 1: a specific saved conversation URL. Try appending the
+      // q param on top of it too â€” if Claude ignores it (likely, since
+      // pre-fill into an existing conversation isn't a documented
+      // mechanism), this just opens the exact conversation with an
+      // empty input, same as if we hadn't added the param at all.
+      final parsed = Uri.tryParse(account.chatUrl.trim());
+      if (parsed != null) {
+        uri = textToPaste.trim().isNotEmpty
+            ? parsed.replace(queryParameters: {...parsed.queryParameters, 'q': textToPaste})
+            : parsed;
+        await AppLogger().log('Using saved chat URL for "${account.nickname}"');
+      } else {
+        uri = Uri.parse('https://claude.ai');
+        await AppLogger().logError(
+          'Saved chat URL for "${account.nickname}" is invalid \u2014 falling back to root',
+          account.chatUrl,
+        );
+      }
     } else {
-      // Experiment: nothing to paste, so try the root URL instead of
-      // forcing /new â€” hoping this lands on the most recent chat rather
-      // than always starting a blank new one. Not guaranteed by Anthropic.
+      // Priority 2: no saved URL â€” go to the root instead of forcing
+      // /new, so this at least has a chance of landing on the last
+      // chat rather than always starting a blank new one.
       uri = Uri.parse('https://claude.ai');
-      await AppLogger().log('No context to paste â€” trying root URL for last chat');
+      await AppLogger().log('No saved chat URL for "${account.nickname}" \u2014 using root URL');
     }
 
     // Try the Claude app directly first (only works if Anthropic has
@@ -86,7 +98,7 @@ class AccountCard extends StatelessWidget {
       await AppLogger().log(
         openedInApp
             ? 'Opened claude.ai directly in a non-browser app'
-            : 'No non-browser app claimed claude.ai â€” falling back to browser',
+            : 'No non-browser app claimed claude.ai \u2014 falling back to browser',
       );
     } catch (e, st) {
       openedInApp = false;
@@ -103,7 +115,7 @@ class AccountCard extends StatelessWidget {
         }
       } else {
         await AppLogger().logError(
-          'Open Claude failed', 'canLaunchUrl returned false â€” no browser detected',
+          'Open Claude failed', 'canLaunchUrl returned false \u2014 no browser detected',
         );
       }
     }
