@@ -13,6 +13,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
   final _project = TextEditingController();
   final _context = TextEditingController();
   final _question = TextEditingController();
+  final _chatUrl = TextEditingController();
   int _timerHours = 5;
   bool get _isEdit => widget.account != null;
 
@@ -24,6 +25,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
       _project.text = widget.account!.projectDescription;
       _context.text = widget.account!.context;
       _question.text = widget.account!.questionToAsk;
+      _chatUrl.text = widget.account!.chatUrl;
       _timerHours = widget.account!.timerDurationHours;
     }
   }
@@ -34,6 +36,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
     _project.dispose();
     _context.dispose();
     _question.dispose();
+    _chatUrl.dispose();
     super.dispose();
   }
 
@@ -50,6 +53,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
       widget.account!.projectDescription = _project.text.trim();
       widget.account!.context = _context.text.trim();
       widget.account!.questionToAsk = _question.text.trim();
+      widget.account!.chatUrl = _chatUrl.text.trim();
       widget.account!.timerDurationHours = _timerHours;
       await StorageService().updateAccount(widget.account!);
     } else {
@@ -59,6 +63,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
         projectDescription: _project.text.trim(),
         context: _context.text.trim(),
         questionToAsk: _question.text.trim(),
+        chatUrl: _chatUrl.text.trim(),
         timerDurationHours: _timerHours,
       );
       await StorageService().addAccount(acc);
@@ -93,6 +98,21 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
 
         _label('QUESTION TO ASK'),
         _field(_question, 'e.g. Is the APK ready? Continue from Day 22...'),
+        const SizedBox(height: 16),
+
+        _label('SPECIFIC CHAT URL (OPTIONAL)'),
+        _field(_chatUrl,
+            'Paste a specific conversation link, e.g. https://claude.ai/chat/xxxxxxxx-xxxx...',
+            maxLines: 2),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            'To get this: open the exact Claude conversation you want to resume, '
+            'copy its URL from your browser\'s address bar, and paste it here. '
+            'If left blank, Open Claude will just take you to claude.ai directly.',
+            style: TextStyle(color: Colors.grey.withOpacity(0.7), fontSize: 11),
+          ),
+        ),
         const SizedBox(height: 16),
 
         _label('TIMER DURATION'),
