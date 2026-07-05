@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:url_launcher/url_launcher.dart';
 import '../services/app_logger.dart';
 
 class LogViewerScreen extends StatefulWidget {
@@ -92,7 +93,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     }
   }
 
-  // --- SAVE (real "download" — opens Android's native Save dialog) ---
+  // --- SAVE (real "download" â€” opens Android's native Save dialog) ---
 
   Future<void> _saveTxt() => _run('Save TXT', () async {
         final stamp = DateTime.now().millisecondsSinceEpoch;
@@ -134,6 +135,29 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         await Share.shareXFiles([XFile(file.path)], text: 'ClaudeLink debug log (PDF)');
       });
 
+  Future<void> _tryOpen(Uri uri, String label) => _run(label, () async {
+        bool openedInApp = false;
+        try {
+          openedInApp = await launchUrl(uri, mode: LaunchMode.externalNonBrowserApplication);
+        } catch (_) {
+          openedInApp = false;
+        }
+        if (!openedInApp) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+        _showMessage(openedInApp ? 'Opened in app' : 'Opened in browser (no app claimed it)');
+      });
+
+  Future<void> _testNewChatQuery() => _tryOpen(
+        Uri.parse('https://claude.ai/new').replace(queryParameters: {'q': 'TEST MESSAGE from ClaudeLink'}),
+        'Test: /new with query param',
+      );
+
+  Future<void> _testLastChat() => _tryOpen(
+        Uri.parse('https://claude.ai'),
+        'Test: root URL (last chat)',
+      );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -169,54 +193,80 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load, tooltip: 'Refresh'),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _entries.isEmpty
-              ? const Center(
-                  child: Text('No errors logged yet.', style: TextStyle(color: Colors.grey)),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _entries.length,
-                  itemBuilder: (_, i) {
-                    final e = _entries[i];
-                    final isError = e.level == 'error';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF111111),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isError ? Colors.redAccent.withOpacity(0.5) : Colors.white12,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${e.time.toString().substring(0, 19)}  •  ${e.level.toUpperCase()}',
-                            style: TextStyle(
-                              color: isError ? Colors.redAccent : Colors.greenAccent,
-                              fontSize: 11,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          SelectableText(
-                            e.message,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : _testNewChatQuery,
+                    child: const Text('Test: /new + query', style: TextStyle(fontSize: 11)),
+                  ),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : _testLastChat,
+                    child: const Text('Test: last chat (root)', style: TextStyle(fontSize: 11)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _entries.isEmpty
+                    ? const Center(
+                        child: Text('No errors logged yet.', style: TextStyle(color: Colors.grey)),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _entries.length,
+                        itemBuilder: (_, i) {
+                          final e = _entries[i];
+                          final isError = e.level == 'error';
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF111111),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isError ? Colors.redAccent.withOpacity(0.5) : Colors.white12,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${e.time.toString().substring(0, 19)}  â€¢  ${e.level.toUpperCase()}',
+                                  style: TextStyle(
+                                    color: isError ? Colors.redAccent : Colors.greenAccent,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                SelectableText(
+                                  e.message,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }
